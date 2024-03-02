@@ -21,10 +21,13 @@ from GUI import *
 from Maps import *
 from Structures import *
 
+
 pygame.init()
 
 width = 1260
 height = 720
+# width = 420
+# height = 360
 
 margin = 25
 
@@ -131,3 +134,6 @@ def game():
         clock.tick(60)
 
 game()
+
+def initialize_game():
+    pass

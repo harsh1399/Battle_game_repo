@@ -23,7 +23,10 @@ from math import *
 from GUI import *
 from Structures import *
 from Troops import *
-
+import json
+import random
+import pyautogui
+import requests
 width = 0
 height = 0
 display = None
@@ -194,6 +197,9 @@ def close():
     pygame.quit()
     sys.exit()
 
+def close_pygame():
+    pygame.quit()
+
 # Pause the Game
 def pause():
     font = pygame.font.SysFont("Showcard Gothic", 70)
@@ -244,14 +250,14 @@ class Maps:
         
         self.maps = data[:]
 
-        fp = open("Data/mapReached", "rb")
-        self.mapNum = int(float(fp.read()))
+        fp = open("Data/mapReached", "r")
+        self.mapNum = int(fp.read())
         fp.close()
 
         fmap = open("Data/customMaps", "r")
         data = fmap.read().split("\n")
         fmap.close()
-        data.pop(-1)
+        # data.pop(-1)
         
         for i in range(len(data)):
             data[i] = data[i].split("|")
@@ -453,10 +459,10 @@ class Maps:
             loop = False
         if victory:
             if self.mode == "adventure":
-                fp = open("Data/mapReached", "wb")
+                fp = open("Data/mapReached", "w")
                 fp.write(str(self.mapNum + 1))
                 fp.close()
-                fp = open("Data/mapReached", "rb")
+                fp = open("Data/mapReached", "r")
                 print(fp.read())
                 fp.close()
             text = self.font.render("VICTORY", True, (255, 255, 255))
@@ -526,11 +532,90 @@ class Maps:
             
             clock.tick(60)
             pygame.display.update()
-            
+
+    def showMap(self,arg):
+        self.mode = arg[1]
+        loop = True
+        global presentLevel
+
+        defenceStruct = []
+
+        if self.mode == "adventure":
+            self.mapNum = (self.mapNum + arg[0]) % len(self.maps)
+        else:
+            self.mapNum = (self.mapNum + arg[0]) % len(self.customMaps)
+
+        if self.mode == "adventure":
+            map = self.maps[self.mapNum]
+        else:
+            map = self.customMaps[self.mapNum]
+
+        cannonCoord = map[0]
+        mortarCoord = map[1]
+        towerCoord = map[2]
+        hqCoord = map[3]
+        resourceCoord = map[4]
+
+        if not (cannonCoord == [""]):
+            for pos in cannonCoord:
+                newCannon = Cannon(pos[0], pos[1], canInfo["w"], canInfo["h"], canInfo["size"],
+                                   canInfo["range"], canInfo["baseR"], pos[2],
+                                   canInfo["shotR"], canInfo["shotSpeed"])
+                defenceStruct.append(newCannon)
+        if not (mortarCoord == [""]):
+            for pos in mortarCoord:
+                newMortar = Mortar(pos[0], pos[1], mortarInfo["w"], mortarInfo["h"], mortarInfo["r"],
+                                   mortarInfo["range"], pos[2], mortarInfo["shotR"],
+                                   mortarInfo["shotSpeed"])
+                defenceStruct.append(newMortar)
+
+        if not (towerCoord == [""]):
+            for pos in towerCoord:
+                newTower = Tower(pos[0], pos[1], towerInfo["w"], towerInfo["h"], towerInfo["size"],
+                                 towerInfo["range"], towerInfo["baseR"], pos[2],
+                                 towerInfo["shotR"], towerInfo["shotSpeed"])
+                defenceStruct.append(newTower)
+
+        if not (hqCoord == [""]):
+            for pos in hqCoord:
+                newHQ = HeadQuarters(pos[0], pos[1], hqInfo["r"], pos[2])
+                defenceStruct.append(newHQ)
+
+        if not (resourceCoord == [""]):
+            for pos in resourceCoord:
+                newResource = Resource(pos[0], pos[1])
+                defenceStruct.append(newResource)
+        loop = True
+        mapFinalized = False
+        while loop:
+            for event in pygame.event.get():
+                if event.type == pygame.MOUSEBUTTONDOWN:
+                    loop=False
+                    break
+                if event.type == pygame.KEYDOWN:
+                    loop = False
+                    mapFinalized = True
+                    break
+
+            display.fill((154, 102, 64))
+            pygame.draw.rect(display, (195, 151, 98), (margin, margin, groundW, groundH))
+            pygame.draw.rect(display, (154, 102, 64), (margin2, margin2, validW, validH))
+
+            drawBorder()
+            pygame.draw.rect(display, gray, (width - 150, 0, 150, height))
+            for struct in defenceStruct:
+                if struct.type == "HEADQUARTERS":
+                    struct.draw()
+                elif struct.type == "RESOURCE":
+                    struct.draw()
+                else:
+                    struct.draw([])
+            pygame.display.update()
+        return mapFinalized
     def openMap(self, arg):
         global loop
         self.mode = arg[1]
-        
+        troop_position = arg[5]
         loop = True
         global presentLevel
 
@@ -666,12 +751,19 @@ class Maps:
         inventory[2].arg = 3
 
         initStruct = len(defenceStruct)
-
+        shooters_behavior,tanks_behavior,helicopters_behavior = arg[2],arg[3],arg[4]
+        count = 0
+        shooter_button = (1200,65)
+        tank_button = (1195, 165)
+        helicopter_button = (1182,280)
+        # pyautogui.PAUSE = 2
         while loop:
             inventory[0].updateText("SHOOTER" + ": " + str(maxShooter - noShooter), (0, 0))
             inventory[1].updateText("TANK" + ": " + str(maxTank - noTank), (0, 0))
             inventory[2].updateText("HELICOPTER" + ": " + str(maxHeli - noHeli), (0, 0))
-            
+
+            if count < len(troop_position):
+                pyautogui.click()
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     close()
@@ -681,9 +773,23 @@ class Maps:
                     if event.key == pygame.K_ESCAPE or event.key == pygame.K_SPACE or pygame.key == pygame.K_p:
                         pause()
                 if event.type == pygame.MOUSEBUTTONDOWN:
-                    inventory[0].select()
-                    inventory[1].select()
-                    inventory[2].select()
+                    troop = troop_position[count]
+                    count += 1
+                    # if troop[0] == "shooters":
+                    #     pyautogui.click(shooter_button[0], shooter_button[1],duration=1)
+                    #     x_pos,y_pos = pyautogui.position()
+                    #     print("shooter clicked:",x_pos,y_pos)
+                    #     # pyautogui.moveTo(shooter_button[0],shooter_button[1])
+                    # elif troop[0] == "tanks":
+                    #     pyautogui.click(tank_button[0], tank_button[1],duration=1)
+                    # elif troop[0] == "helicopters":
+                    #     pyautogui.click(helicopter_button[0], helicopter_button[1],duration=1)
+                    if troop[0] == "shooters":
+                        inventory[0].select(selected = 1)
+                    elif troop[0] == "tanks":
+                        inventory[1].select(selected=1)
+                    elif troop[0] == "helicopters":
+                        inventory[2].select(selected = 1)
 
                     if self.mode == "custom":
                         level[0].select()
@@ -692,35 +798,38 @@ class Maps:
                         level[3].select()
                         level[4].select()
                         next.select()
-
-                    pos = pygame.mouse.get_pos()
+                    deployment_position = troop[1]
+                    # pyautogui.click(deployment_position[0], deployment_position[1],duration=1)
+                    # pos = pygame.mouse.get_pos()
+                    # print(pos)
+                    pos = (deployment_position[0] , deployment_position[1])
                     if (margin < pos[0] < groundW + margin) and (margin < pos[1] < groundH + margin):
                         if not ((margin2  < pos[0] < margin2 + validW) and (margin2 < pos[1] < margin2 + validH)):
                             if activeButton == 1 and noShooter < maxShooter:
                                 if self.mode == "custom":
                                     if presentLevel > shooterMaxLevel:
                                         presentLevel = shooterMaxLevel
-                                    newShooter = Shooter(pos[0], pos[1], 5, 1.2, 180, presentLevel, 5, 2)
+                                    newShooter = Shooter(pos[0], pos[1], 5, 1.2, 180, presentLevel, 5, 2,shooters_behavior)
                                 else:
-                                    newShooter = Shooter(pos[0], pos[1], 5, 1.2, 180, shooterMaxLevel, 5, 2)
+                                    newShooter = Shooter(pos[0], pos[1], 5, 1.2, 180, shooterMaxLevel, 5, 2,shooters_behavior)
                                 troops.insert(0, newShooter)
                                 noShooter += 1
                             if activeButton == 2 and noTank < maxTank:
                                 if self.mode == "custom":
                                     if presentLevel > tankMaxLevel:
                                         presentLevel = tankMaxLevel
-                                    newTank = Tank(pos[0], pos[1], 20, 1, 200, presentLevel, 6, 2)
+                                    newTank = Tank(pos[0], pos[1], 20, 1, 200, presentLevel, 6, 2,tanks_behavior)
                                 else:
-                                    newTank = Tank(pos[0], pos[1], 20, 1, 200, tankMaxLevel, 6, 2)
+                                    newTank = Tank(pos[0], pos[1], 20, 1, 200, tankMaxLevel, 6, 2,tanks_behavior)
                                 troops.insert(0, newTank)
                                 noTank += 1
                             if activeButton == 3 and noHeli < maxHeli:
                                 if self.mode == "custom":
                                     if presentLevel > heliMaxLevel:
                                         presentLevel = heliMaxLevel
-                                    newHeli = Helicopter(pos[0], pos[1], 30, 0.7, 200, presentLevel, 7, 10)
+                                    newHeli = Helicopter(pos[0], pos[1], 30, 0.7, 200, presentLevel, 7, 10,helicopters_behavior)
                                 else:
-                                    newHeli = Helicopter(pos[0], pos[1], 30, 0.7, 200, heliMaxLevel, 7, 10)
+                                    newHeli = Helicopter(pos[0], pos[1], 30, 0.7, 200, heliMaxLevel, 7, 10,helicopters_behavior)
                                 troops.append(newHeli)
                                 noHeli += 1
                         
@@ -789,17 +898,194 @@ class Maps:
             
             clock.tick(90)
 
+def create_map_from_json(file_path):
+    with open(file_path) as f:
+        data = json.load(f)
+        structures = ["cannon","mortar","tower","headquarters","resource"]
+        map_str = ""
+        for structure in structures:
+            for defense in data['environment']['defenses']:
+                if data['environment']['defenses'][defense]['structure'] == structure:
+                    x,y = 0,0
+                    if data['environment']['defenses'][defense]['position'] == "top right":
+                        x = random.randint(700,1000)
+                        y = random.randint(100,270)
+                    elif data['environment']['defenses'][defense]['position'] == "center top":
+                        x = random.randint(400,699)
+                        y = random.randint(100,270)
+                    elif data['environment']['defenses'][defense]['position'] == "top left":
+                        x = random.randint(100,399)
+                        y = random.randint(100,270)
+                    elif data['environment']['defenses'][defense]['position'] == "center":
+                        x = random.randint(400,699)
+                        y = random.randint(271,440)
+                    elif data['environment']['defenses'][defense]['position'] == "center right":
+                        x = random.randint(700,1000)
+                        y = random.randint(271,440)
+                    elif data['environment']['defenses'][defense]['position'] == "center left":
+                        x = random.randint(100,399)
+                        y = random.randint(271,440)
+                    elif data['environment']['defenses'][defense]['position'] == "bottom right":
+                        x = random.randint(700,1000)
+                        y = random.randint(441,610)
+                    elif data['environment']['defenses'][defense]['position'] == "center bottom":
+                        x = random.randint(400,699)
+                        y = random.randint(441,610)
+                    elif data['environment']['defenses'][defense]['position'] == "bottom left":
+                        x = random.randint(100,399)
+                        y = random.randint(441,610)
+                    level = 2
+                    # level,shotspeed,hitpoint,damage = 1,2,150,15
+                    # if 'level' in data['environment'][defense].keys():
+                    #     level = data['environment'][defense]['level']
+                    # if 'shotSpeed' in data['environment'][defense].keys():
+                    #     shotspeed = data['environment'][defense]['shotSpeed']
+                    # if 'hitpoint' in data['environment'][defense].keys():
+                    #     hitpoint = data['environment'][defense]['hitpoint']
+                    # if 'damage' in data['environment'][defense].keys():
+                    #     damage = data['environment'][defense]['damage']
+                    map_str = map_str + f"{x},{y},{level}/"
+            map_str = map_str+"|"
+        with open('Data/customMaps','w')as f1:
+            f1.write(map_str[:-1])
 
+        # shooters_behavior = data['agents']['shooters']["behavior"]
+        # tanks_behavior = data['agents']['tanks']["behavior"]
+        # helicopters_behavior = data['agents']['helicopters']["behavior"]
+        # return shooters_behavior,tanks_behavior,helicopters_behavior
+
+def create_map_from_configuration(file_path):
+    with open(file_path) as f:
+        data = json.load(f)
+        structures = ["cannon","mortar","tower","headquarters","resource"]
+        map_str = ""
+        for structure in structures:
+            for defense in data['environment']:
+                if data['environment'][defense]['structure'] == structure:
+                    x,y = 0,0
+                    if data['environment'][defense]['position'] == "top right":
+                        x = random.randint(700,1000)
+                        y = random.randint(100,270)
+                    elif data['environment'][defense]['position'] == "center top":
+                        x = random.randint(400,699)
+                        y = random.randint(100,270)
+                    elif data['environment'][defense]['position'] == "top left":
+                        x = random.randint(100,399)
+                        y = random.randint(100,270)
+                    elif data['environment'][defense]['position'] == "center":
+                        x = random.randint(400,699)
+                        y = random.randint(271,440)
+                    elif data['environment'][defense]['position'] == "center right":
+                        x = random.randint(700,1000)
+                        y = random.randint(271,440)
+                    elif data['environment'][defense]['position'] == "center left":
+                        x = random.randint(100,399)
+                        y = random.randint(271,440)
+                    elif data['environment'][defense]['position'] == "bottom right":
+                        x = random.randint(700,1000)
+                        y = random.randint(441,610)
+                    elif data['environment'][defense]['position'] == "center bottom":
+                        x = random.randint(400,699)
+                        y = random.randint(441,610)
+                    elif data['environment'][defense]['position'] == "bottom left":
+                        x = random.randint(100,399)
+                        y = random.randint(441,610)
+                    level,shotspeed,hitpoint,damage = 1,2,150,15
+                    if 'level' in data['environment'][defense].keys():
+                        level = data['environment'][defense]['level']
+                    if 'shotSpeed' in data['environment'][defense].keys():
+                        shotspeed = data['environment'][defense]['shotSpeed']
+                    if 'hitpoint' in data['environment'][defense].keys():
+                        hitpoint = data['environment'][defense]['hitpoint']
+                    if 'damage' in data['environment'][defense].keys():
+                        damage = data['environment'][defense]['damage']
+                    map_str = map_str + f"{x},{y},{level},{shotspeed},{hitpoint},{damage}/"
+            map_str = map_str+"|"
+        with open('Data/customMaps','w')as f1:
+            f1.write(map_str[:-1])
+
+        shooters_behavior = data['agents']['shooters']["behavior"]
+        tanks_behavior = data['agents']['tanks']["behavior"]
+        helicopters_behavior = data['agents']['helicopters']["behavior"]
+        return shooters_behavior,tanks_behavior,helicopters_behavior
+
+def troops_positions(file_path = "Data/configuration.json"):
+    troops_position = []
+    with open(file_path) as f:
+        data = json.load(f)
+        troops = ['shooters','tanks','helicopters']
+        deployment_positions = data["deployment"]['deployments']
+        # deployment_shooters = deployment_positions['shooters']
+        # deployment_tanks = deployment_positions['tanks']
+        # deployment_helicopters = deployment_positions['helicopters']
+        for deployment in deployment_positions:
+            troop = deployment_positions[deployment]["troop"]
+            value = deployment_positions[deployment]["DeployedNumbers"]
+            for i in range(value):
+                x, y = 0, 0
+                if deployment_positions[deployment]["DeploymentPosition"] == "top right":
+                    x = random.randint(700, 1000)
+                    y = random.randint(50, 95)
+                elif deployment_positions[deployment]["DeploymentPosition"] == "center top":
+                    x = random.randint(400, 699)
+                    y = random.randint(50, 95)
+                elif deployment_positions[deployment]["DeploymentPosition"] == "top left":
+                    x = random.randint(100, 399)
+                    y = random.randint(50, 95)
+                elif deployment_positions[deployment]["DeploymentPosition"] == "center right":
+                    x = random.randint(1030, 1050)
+                    y = random.randint(271, 440)
+                elif deployment_positions[deployment]["DeploymentPosition"] == "center left":
+                    x = random.randint(10, 50)
+                    y = random.randint(271, 440)
+                elif deployment_positions[deployment]["DeploymentPosition"] == "bottom right":
+                    x = random.randint(700, 1000)
+                    y = random.randint(615, 640)
+                elif deployment_positions[deployment]["DeploymentPosition"] == "center bottom":
+                    x = random.randint(400, 699)
+                    y = random.randint(615, 640)
+                elif deployment_positions[deployment]["DeploymentPosition"] == "bottom left":
+                    x = random.randint(100, 399)
+                    y = random.randint(615, 640)
+                troops_position.append((troop,(x,y)))
+    return troops_position
 
 if __name__ == "__main__":
+    query = None
+    with open('Data/query.txt','r') as f:
+        query = f.read()
     width = 1260
     height = 720
 
-    screen = pygame.display.set_mode((width, height))
+    mapFinalized = False
 
+    while not mapFinalized:
+        response = requests.post(
+            "https://31ea-155-98-12-76.ngrok-free.app/configure_json/invoke",
+            json={'input': {
+                "question": f'{query}'}}
+        )
+
+        config = json.loads(response.json()['output']['content'])
+
+        with open('Data/configuration.json', 'w') as f:
+            json.dump(config, f)
+        create_map_from_json("Data/configuration.json")
+        pygame.init()
+        screen = pygame.display.set_mode((width, height))
+        initMaps(screen, (width, height), 25, 100)
+        newMap = Maps()
+        mapFinalized = newMap.showMap([0, "custom"])
+        close_pygame()
+    shooters_behavior = {'firstImpTarget':'CANNON','secondImpTarget':'HEADQUARTERS'}
+    tanks_behavior = {'firstImpTarget': 'CANNON', 'secondImpTarget': 'MORTAR'}
+    helicopters_behavior = {'firstImpTarget': 'TOWER', 'secondImpTarget': 'CANNON'}
+
+    positions = troops_positions()
+    pygame.init()
+    screen = pygame.display.set_mode((width, height))
     initMaps(screen, (width, height), 25, 100)
-    
     newMap = Maps()
-    newMap.openMap([0, "adventure"])
+    newMap.openMap([0, "custom",shooters_behavior,tanks_behavior,helicopters_behavior,positions])
     #newMap.createMap()
     close()

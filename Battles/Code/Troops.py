@@ -79,7 +79,7 @@ class Shots:
 
 
 class Shooter:
-    def __init__(self, x, y, r, speed, range, level, shotSpeed, radius):
+    def __init__(self, x, y, r, speed, range, level, shotSpeed, radius,behavior=None):
         self.x = x
         self.y = y
 
@@ -91,7 +91,7 @@ class Shooter:
         self.speed = speed
         self.speedMemory = speed
         self.level = level
-
+        self.behavior = behavior
         self.slow = 20
 
         if self.level == 1:
@@ -243,17 +243,49 @@ class Shooter:
         #pygame.draw.ellipse(display, (123, 125, 125), (self.x - self.range/2, self.y - self.range/2, self.range, self.range), 1)
                 
     def move(self, defenceStruct):
+        attackingTarget = None
         if len(defenceStruct):
             nearestPos = 0
             lowestDist = float("inf")
+            lowestDist = float("inf")
+            lowestFirstImpTargetDist = float("inf")
+            lowestSecondImpTargetDist = float("inf")
+            firstImpTarget = self.behavior["firstImpTarget"]
+            secondImpTarget = self.behavior["secondImpTarget"]
+            nearestFirstTarget = None
+            nearestSecondTarget = None
+            for struct in defenceStruct:
+                if struct.type == firstImpTarget:
+                    dist = (self.x - struct.x) ** 2 + (self.y - struct.y) ** 2
+                    if lowestFirstImpTargetDist > dist:
+                        self.nearestPos = [struct.x, struct.y]
+                        lowestFirstImpTargetDist = dist
+                        nearestFirstTarget = struct
+                elif struct.type == secondImpTarget:
+                    dist = (self.x - struct.x) ** 2 + (self.y - struct.y) ** 2
+                    if lowestSecondImpTargetDist > dist:
+                        self.nearestPos = [struct.x, struct.y]
+                        lowestSecondImpTargetDist = dist
+                        nearestSecondTarget = struct
+            if nearestFirstTarget is not None and lowestFirstImpTargetDist < lowestSecondImpTargetDist + 1000:
+                lowestDist = lowestFirstImpTargetDist + 2000
+                self.nearestPos = [nearestFirstTarget.x, nearestFirstTarget.y]
+                attackingTarget = nearestFirstTarget
+                # print("attacking first imp target:",nearestFirstTarget.type)
+            elif nearestSecondTarget is not None:
+                lowestDist = lowestSecondImpTargetDist + 1500
+                self.nearestPos = [nearestSecondTarget.x, nearestSecondTarget.y]
+                # print("attacking second imp target:", nearestSecondTarget.type)
+                attackingTarget = nearestSecondTarget
             for struct in defenceStruct:
                 dist = (self.x - struct.x)**2 + (self.y - struct.y)**2
                 if lowestDist > dist:
                     self.nearestPos = [struct.x, struct.y]
                     lowestDist = dist
+                    attackingTarget = struct
         else:
             self.nearestPos = pygame.mouse.get_pos()
-        
+        print("shooters attacking:",attackingTarget.type)
         angle = atan2(self.nearestPos[1] - self.y, self.nearestPos[0] - self.x)
         self.x += self.speed*cos(angle)
         self.y += self.speed*sin(angle)
@@ -264,7 +296,7 @@ class Shooter:
             self.speed = self.speedMemory
 
 class Tank:
-    def __init__(self, x, y, r, speed, range, level, shotSpeed, radius):
+    def __init__(self, x, y, r, speed, range, level, shotSpeed, radius,behavior=None):
         self.x = x
         self.y = y
         self.barrelX = x
@@ -277,7 +309,7 @@ class Tank:
         self.r = r
         self.speed = speed
         self.speedMemory = speed
-
+        self.behavior = behavior
         self.level = level
 
         if self.level == 1:
@@ -454,17 +486,51 @@ class Tank:
         #pygame.draw.ellipse(display, (123, 125, 125), (self.x - self.range/2, self.y - self.range/2, self.range, self.range), 1)
                 
     def move(self, defenceStruct):
+        attackingTarget = None
         if len(defenceStruct):
             nearestPos = 0
             lowestDist = float("inf")
+
+            lowestDist = float("inf")
+            lowestFirstImpTargetDist = float("inf")
+            lowestSecondImpTargetDist = float("inf")
+            firstImpTarget = self.behavior["firstImpTarget"]
+            secondImpTarget = self.behavior["secondImpTarget"]
+            nearestFirstTarget = None
+            nearestSecondTarget = None
+            for struct in defenceStruct:
+                if struct.type == firstImpTarget:
+                    dist = (self.x - struct.x) ** 2 + (self.y - struct.y) ** 2
+                    if lowestFirstImpTargetDist > dist:
+                        self.nearestPos = [struct.x, struct.y]
+                        lowestFirstImpTargetDist = dist
+                        nearestFirstTarget = struct
+                elif struct.type == secondImpTarget:
+                    dist = (self.x - struct.x) ** 2 + (self.y - struct.y) ** 2
+                    if lowestSecondImpTargetDist > dist:
+                        self.nearestPos = [struct.x, struct.y]
+                        lowestSecondImpTargetDist = dist
+                        nearestSecondTarget = struct
+            if nearestFirstTarget is not None and lowestFirstImpTargetDist < lowestSecondImpTargetDist + 1000:
+                lowestDist = lowestFirstImpTargetDist + 2000
+                self.nearestPos = [nearestFirstTarget.x, nearestFirstTarget.y]
+                attackingTarget = nearestFirstTarget
+                # print("attacking first imp target:",nearestFirstTarget.type)
+            elif nearestSecondTarget is not None:
+                lowestDist = lowestSecondImpTargetDist + 1500
+                self.nearestPos = [nearestSecondTarget.x, nearestSecondTarget.y]
+                # print("attacking second imp target:", nearestSecondTarget.type)
+                attackingTarget = nearestSecondTarget
+
             for struct in defenceStruct:
                 dist = (self.x - struct.x)**2 + (self.y - struct.y)**2
                 if lowestDist > dist:
                     self.nearestPos = [struct.x, struct.y]
                     lowestDist = dist
+                    attackingTarget = struct
         else:
             self.nearestPos = pygame.mouse.get_pos()
-        
+        print("Tank attacking:",attackingTarget.type)
         #self.nearestPos = pygame.mouse.get_pos()
         angle = atan2(self.nearestPos[1] - self.y, self.nearestPos[0] - self.x)
         self.x += self.speed*cos(angle)
@@ -480,7 +546,7 @@ class Tank:
 
 
 class Helicopter:
-    def __init__(self, x, y, r, speed, range, level, shotSpeed=5, radius=2):
+    def __init__(self, x, y, r, speed, range, level, shotSpeed=5, radius=2,behavior=None):
         self.x = x
         self.y = y
         self.barrelX = x
@@ -489,11 +555,10 @@ class Helicopter:
         self.range = range
         self.shotSpeed = shotSpeed
         self.radius = radius
-        
+        self.behavior = behavior
         self.r = r
         self.speed = speed
         self.speedMemory = speed
-
         self.level = level
 
         if self.level == 1:
@@ -745,9 +810,39 @@ class Helicopter:
         pygame.draw.line(display, self.colorFan, right, centre, 5)
 
     def move(self, defenceStruct):
+        attackingTarget = None
         if len(defenceStruct):
             nearestPos = 0
             lowestDist = float("inf")
+            lowestFirstImpTargetDist = float("inf")
+            lowestSecondImpTargetDist = float("inf")
+            firstImpTarget = self.behavior["firstImpTarget"]
+            secondImpTarget = self.behavior["secondImpTarget"]
+            nearestFirstTarget = None
+            nearestSecondTarget = None
+            for struct in defenceStruct:
+                if struct.type == firstImpTarget:
+                    dist = (self.x - struct.x) ** 2 + (self.y - struct.y) ** 2
+                    if lowestFirstImpTargetDist > dist:
+                        self.nearestPos = [struct.x, struct.y]
+                        lowestFirstImpTargetDist = dist
+                        nearestFirstTarget = struct
+                elif struct.type == secondImpTarget:
+                    dist = (self.x - struct.x) ** 2 + (self.y - struct.y) ** 2
+                    if lowestSecondImpTargetDist > dist:
+                        self.nearestPos = [struct.x, struct.y]
+                        lowestSecondImpTargetDist = dist
+                        nearestSecondTarget = struct
+            if nearestFirstTarget is not None and lowestFirstImpTargetDist < lowestSecondImpTargetDist + 1000:
+                lowestDist = lowestFirstImpTargetDist + 2000
+                self.nearestPos = [nearestFirstTarget.x, nearestFirstTarget.y]
+                attackingTarget = nearestFirstTarget
+                # print("attacking first imp target:",nearestFirstTarget.type)
+            elif nearestSecondTarget is not None:
+                lowestDist = lowestSecondImpTargetDist + 1500
+                self.nearestPos = [nearestSecondTarget.x, nearestSecondTarget.y]
+                # print("attacking second imp target:", nearestSecondTarget.type)
+                attackingTarget = nearestSecondTarget
             for struct in defenceStruct:
                 if struct.type == "HEADQUARTERS" or struct.type == "RESOURCE":
                     dist = (self.x - struct.x)**2 + (self.y - struct.y)**2
@@ -759,9 +854,10 @@ class Helicopter:
                     else:
                         self.nearestPos = [struct.xOld, struct.yOld]
                     lowestDist = dist
+                    attackingTarget = struct
         else:
             self.nearestPos = pygame.mouse.get_pos()
-        
+        print("helicopter attacking:",attackingTarget.type)
         #self.nearestPos = pygame.mouse.get_pos()
         angle = atan2(self.nearestPos[1] - self.y, self.nearestPos[0] - self.x)
         self.x += self.speed*cos(angle)

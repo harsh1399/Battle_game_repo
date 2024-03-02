@@ -62,8 +62,8 @@ class Button:
         self.image = None
         self.imagePos = None
 
-    def select(self):
-        if isActive(self.x, self.y, self.w, self.h) and self.action != None:
+    def select(self,selected=0):
+        if selected ==1 or (isActive(self.x, self.y, self.w, self.h) and self.action != None):
             self.action(self.arg)
         
     def draw(self, index=0):
@@ -113,6 +113,7 @@ def getRect(font):
 # Check if mouse is over the button
 def isActive(x, y, w, h):
     pos = pygame.mouse.get_pos()
+    # print(pos)
     if (x < pos[0] < x + w) and (y < pos[1] < y + h):
         return True
     return False
