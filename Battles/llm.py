@@ -114,7 +114,7 @@ prompt = ChatPromptTemplate(
 # """)
 # _input = prompt.format_prompt(question=query)
 
-agent_key = "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"
+agent_key = ""
 chat_model = ChatOpenAI(openai_api_key=agent_key, model="gpt-3.5-turbo-1106", max_tokens=4096, temperature=0.1)
 # output = chat_model(_input.to_messages())
 
